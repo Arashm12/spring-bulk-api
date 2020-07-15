@@ -40,7 +40,7 @@ import static org.springframework.http.HttpStatus.PAYLOAD_TOO_LARGE;
 import static org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY;
 
 /**
- * 
+ *
  * {@link DefaultBulkApiService} id the default implementation of
  * {@link BulkApiService}.
  *
@@ -55,7 +55,7 @@ public class DefaultBulkApiService implements BulkApiService {
 
   /**
    * Creates a {@link DefaultBulkApiService}.
-   * 
+   *
    * @param appCtx
    *          the Spring {@link ApplicationContext}
    */
@@ -85,11 +85,21 @@ public class DefaultBulkApiService implements BulkApiService {
       ComputedURIResult uriResult = computeUri(servReq, op);
 
       BodyBuilder bodyBuilder = RequestEntity.method(//
-          httpMethod(op.getMethod()), uriResult.getUri());
+              httpMethod(op.getMethod()), uriResult.getUri());
 
-      ResponseEntity<String> rawRes = template.exchange(
-          requestEntity(bodyBuilder, op, uriResult.hasRequestBody()),
-          String.class);
+
+      ResponseEntity<String> rawRes = null;
+      try {
+        System.out.println("Arash: Before method");
+        RequestEntity<?> entity = requestEntity(bodyBuilder, op, uriResult.hasRequestBody());
+        rawRes = template.exchange(entity
+                ,
+                String.class);
+        System.out.println("Arash: After method");
+      } catch (Exception e) {
+        System.out.println("Arash: Exception catch");
+      }
+      System.out.println("Arash: After try/catch");
 
       if (!op.isSilent()) results.add(buildResult(rawRes));
     }
@@ -98,7 +108,7 @@ public class DefaultBulkApiService implements BulkApiService {
   }
 
   private RequestEntity<?> requestEntity(BodyBuilder bodyBuilder,
-      BulkOperation op, boolean requestBody) {
+                                         BulkOperation op, boolean requestBody) {
     for (Entry<String, String> header : op.getHeaders().entrySet()) {
       bodyBuilder.header(header.getKey(), header.getValue());
     }
@@ -116,31 +126,31 @@ public class DefaultBulkApiService implements BulkApiService {
   }
 
   private ComputedURIResult computeUri(HttpServletRequest servReq,
-      BulkOperation op) {
+                                       BulkOperation op) {
     String rawUrl = servReq.getRequestURL().toString();
     String rawUri = servReq.getRequestURI().toString();
 
     if (op.getUrl() == null || isBulkPath(op.getUrl())) {
       throw new BulkApiException(UNPROCESSABLE_ENTITY,
-          "Invalid URL(" + rawUri + ") exists in this bulk request");
+              "Invalid URL(" + rawUri + ") exists in this bulk request");
     }
 
     String bulkPath =
-        urlify(env.getProperty(BULK_API_PATH_KEY, BULK_API_PATH_DEFAULT));
+            urlify(env.getProperty(BULK_API_PATH_KEY, BULK_API_PATH_DEFAULT));
     URI uri;
     try {
       String servletPath = rawUrl.substring(0, rawUrl.lastIndexOf(bulkPath));
       uri = new URI(servletPath + urlify(op.getUrl()));
     } catch (URISyntaxException e) {
       throw new BulkApiException(UNPROCESSABLE_ENTITY, "Invalid URL("
-          + urlify(op.getUrl()) + ") exists in this bulk request");
+              + urlify(op.getUrl()) + ") exists in this bulk request");
     }
 
     PathValidationResult pvr = validator().validatePath(urlify(op.getUrl()),
-        httpMethod(op.getMethod()));
+            httpMethod(op.getMethod()));
     if (!pvr.isValid()) {
       throw new BulkApiException(UNPROCESSABLE_ENTITY, "Invalid URL("
-          + urlify(op.getUrl()) + ") exists in this bulk request");
+              + urlify(op.getUrl()) + ") exists in this bulk request");
     }
 
     if (uriTransformer != null) uri = uriTransformer.transform(uri);
@@ -149,7 +159,7 @@ public class DefaultBulkApiService implements BulkApiService {
 
   private boolean isBulkPath(String url) {
     String bulkPath =
-        urlify(env.getProperty(BULK_API_PATH_KEY, BULK_API_PATH_DEFAULT));
+            urlify(env.getProperty(BULK_API_PATH_KEY, BULK_API_PATH_DEFAULT));
     url = urlify(url);
 
     return url.equals(bulkPath) || url.startsWith(bulkPath + "/");
@@ -161,6 +171,10 @@ public class DefaultBulkApiService implements BulkApiService {
   }
 
   private BulkResult buildResult(ResponseEntity<String> rawRes) {
+    if (rawRes==null){
+      return new BulkResult();
+    }
+
     BulkResult res = new BulkResult();
     res.setStatus(rawRes.getStatusCodeValue());
     res.setHeaders(rawRes.getHeaders().toSingleValueMap());
@@ -170,12 +184,12 @@ public class DefaultBulkApiService implements BulkApiService {
   }
 
   private void validateBulkRequest(BulkRequest req,
-      HttpServletRequest servReq) {
+                                   HttpServletRequest servReq) {
     int max =
-        env.getProperty(BULK_API_LIMIT_KEY, int.class, BULK_API_LIMIT_DEFAULT);
+            env.getProperty(BULK_API_LIMIT_KEY, int.class, BULK_API_LIMIT_DEFAULT);
     if (req.getOperations().size() > max) {
       throw new BulkApiException(PAYLOAD_TOO_LARGE,
-          "Bulk operations exceed the limitation(" + max + ")");
+              "Bulk operations exceed the limitation(" + max + ")");
     }
 
     // Check if any invalid URL exists
@@ -200,6 +214,7 @@ class MyErrorHandler implements ResponseErrorHandler {
 
   @Override
   public void handleError(ClientHttpResponse clientHttpResponse){
+    System.out.println("// your error handling here");
   }
 
   @Override
